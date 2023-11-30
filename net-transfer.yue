@@ -61,13 +61,13 @@ PerformFilter = ( netTransfer, filter, ply ) ->
 
 class NetTransfer
     __tostring: =>
-        return format( "Net Transfer: %p [%s]", @, @FileName )
+        return format( "Net Transfer: %p [%s]", @, @TransferName )
 
-    new: ( fileName, verifyChecksums, unreliable ) =>
-        assert isstring( fileName ), "First argument must be a string!"
-        NetTransfers[ fileName ] = @
+    new: ( transferName, verifyChecksums, unreliable ) =>
+        assert isstring( transferName ), "First argument must be a string!"
+        NetTransfers[ transferName ] = @
 
-        @FileName = fileName
+        @TransferName = transferName
         @Receiving = false
         @Sending = false
 
@@ -160,7 +160,7 @@ class NetTransfer
     -- Networking
     StartTransmission: =>
         Start( "NetTransfer::NS", @Unreliable )
-        WriteString( @FileName )
+        WriteString( @TransferName )
 
     EndTransmission: ( target ) =>
         if SERVER
@@ -251,7 +251,7 @@ class NetTransfer
             @Received = 0
             return
 
-        bytes = ( bits / 8 ) - ( #@FileName + 1 )
+        bytes = ( bits / 8 ) - ( #@TransferName + 1 )
         received = @Received + 1
         @Received = received
 
@@ -289,7 +289,7 @@ class NetTransfer
         @Sending = false
 
     Remove: =>
-        NetTransfers[ @FileName ] = nil
+        NetTransfers[ @TransferName ] = nil
         @Finish!
 
 _G.NetTransfer = NetTransfer
