@@ -4,7 +4,10 @@ A class for sending binary data through the net library in a simple and fast ( a
 ## Code
 Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled in Lua code can be found in [releases](https://github.com/PrikolMen/net-transfer/releases).
 
-## Functions
+## Global Functions
+- `NetTransferObject` NetTransfer( `string` transferName, `boolean` verifyChecksums, `boolean` unreliable ) - Creates a data transfer object with the specified parameters.
+
+## Meta Functions
 - `number` NetTransfer:GetTransmissionSpeed() - Returns network messages per second.
 - `nil` NetTransfer:SetTransmissionSpeed( `number` packet per second, `boolean` noCeil ) - Sets network messages per second.
 - `boolean` NetTransfer:IsUnreliable() - https://wiki.facepunch.com/gmod/net.Start
