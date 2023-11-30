@@ -1,5 +1,5 @@
 # net-transfer
-A class for sending binary data through the net library in a simple and fast ( as fast as possible ) way.
+Object for conveniently sending and receiving large data/files via `net`.
 
 ## Code
 Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled in Lua code can be found in [releases](https://github.com/PrikolMen/net-transfer/releases).
