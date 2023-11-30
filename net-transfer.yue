@@ -1,0 +1,296 @@
+:Broadcast, :Start, :Send, :SendToServer, :ReadBool, :ReadData, :ReadString, :ReadUInt, :WriteBool, :WriteData, :WriteString, :WriteUInt = net
+:CRC, :Compress, :Decompress = util
+:sub, :find, :format, :len = string
+timer_Simple = timer.Simple
+tostring = tostring
+tonumber = tonumber
+:ceil, :log = math
+TypeID = TypeID
+
+NET_LIMIT = 2 ^ 16 - 2 ^ 10
+NetTransfers = {}
+
+if SERVER
+    util.AddNetworkString( "NetTransfer::NS" )
+
+net.Receive "NetTransfer::NS", ( bits, ply ) ->
+    netTransfer = NetTransfers[ ReadString! ]
+    if netTransfer
+        netTransfer\Incoming( bits, ply )
+
+-- Smart player filter
+PerformFilter = ( netTransfer, filter, ply ) ->
+    if filter
+        switch TypeID( filter )
+            when TYPE_BOOL
+                return filter
+
+            when TYPE_NUMBER
+                return ply\EntIndex! == filter
+
+            when TYPE_STRING
+                unless ply\IsBot!
+                    if ply\SteamID64! == filter
+                        return true
+
+                    if ply\SteamID! == filter
+                        return true
+
+                return find( ply\Nick!, filter ) ~= nil
+
+            when TYPE_TABLE
+                for value in *filter
+                    if PerformFilter( netTransfer, value, ply )
+                        return true
+
+                return false
+
+            when TYPE_FUNCTION
+                return filter( netTransfer, ply )
+
+            when TYPE_ENTITY
+                return ply == filter
+
+            when TYPE_VECTOR
+                return ply\TestPVS( filter )
+
+            when TYPE_RECIPIENTFILTER
+                return PerformFilter( netTransfer, filter\GetPlayers!, ply )
+
+    return true
+
+class NetTransfer
+    __tostring: =>
+        return format( "Net Transfer: %p [%s]", @, @FileName )
+
+    new: ( fileName, verifyChecksums, unreliable ) =>
+        assert isstring( fileName ), "First argument must be a string!"
+        NetTransfers[ fileName ] = @
+
+        @FileName = fileName
+        @Receiving = false
+        @Sending = false
+
+        @SetVerifyChecksums( verifyChecksums )
+        @SetTransmissionSpeed( 1.2, true )
+        @SetUnreliable( unreliable )
+
+    -- Transmission speed ( Packet per second )
+    --[[
+
+        Maximum speed is available at value 4,
+        values higher than this do not guarantee
+        speed increase, 0.8 guarantees synchronization
+        between receiving and sending.
+
+        High speed may interfere with
+        normal net library operations.
+
+    ]]
+
+    GetTransmissionSpeed: =>
+        return 1 / @TransmissionSpeed
+
+    SetTransmissionSpeed: ( pps, noCeil ) =>
+        assert isnumber( pps ), "Second argument must be a number!"
+        @TransmissionSpeed = 1 / ( noCeil and pps or ceil( pps ) )
+
+    -- Unreliable networking
+    IsUnreliable: =>
+        return @Unreliable
+
+    SetUnreliable: ( value ) =>
+        @Unreliable = value == true
+
+    -- Checksums verify
+    IsVerifyChecksums: =>
+        return @VerifyChecksums
+
+    SetVerifyChecksums: ( value ) =>
+        @Unreliable = value ~= false
+
+    -- Player filter
+    GetFilter: =>
+        return @Filter
+
+    SetFilter: ( value ) =>
+        @Filter = value
+
+    IsAllowedPlayer: ( ply ) =>
+        return PerformFilter( @, @Filter, ply )
+
+    -- LZMA data compression
+    IsCompressedData: =>
+        return @Compressed
+
+    CompressData: =>
+        transmittedData = @TransmittedData
+        if @Compressed
+            return transmittedData
+
+        transmittedData = Compress( transmittedData )
+        @TransmittedData = transmittedData
+        @Compressed = true
+        return transmittedData
+
+    DecompressData: =>
+        transmittedData = @TransmittedData
+        unless @Compressed
+            return transmittedData
+
+        transmittedData = Decompress( transmittedData )
+        @TransmittedData = transmittedData
+        @Compressed = false
+        return transmittedData
+
+    -- Transmitted data
+    GetTransmittedData: =>
+        return @TransmittedData
+
+    SetTransmittedData: ( transmittedData, compress, decompress ) =>
+        assert isstring( transmittedData ), "Second argument must be a string!"
+        @TransmittedData = transmittedData
+
+        if compress
+            return @CompressData!
+        elseif decompress
+            return @DecompressData!
+        return transmittedData
+
+    -- Networking
+    StartTransmission: =>
+        Start( "NetTransfer::NS", @Unreliable )
+        WriteString( @FileName )
+
+    EndTransmission: ( target ) =>
+        if SERVER
+            if value
+                Send( value )
+            else
+                Broadcast!
+        else
+            SendToServer!
+
+    -- Sending
+    IsSending: =>
+        return @Sending
+
+    Send: ( ply ) =>
+        if @Sending
+            return
+
+        unless @IsAllowedPlayer( ply )
+            return
+
+        transmittedData = @TransmittedData
+        dataSize = len( transmittedData )
+        messageCount = ceil( dataSize / NET_LIMIT )
+        totalBits = ceil( log( messageCount + 1, 2 ) )
+        totalBits = totalBits < 1 and 1 or totalBits
+        @Sending = true
+
+        @StartTransmission!
+        WriteUInt( totalBits - 1, 5 )
+        WriteUInt( messageCount, totalBits )
+        WriteBool( @Compressed )
+
+        if @VerifyChecksums
+            WriteUInt( tonumber( CRC( transmittedData ) ), 32 )
+
+        @EndTransmission( ply )
+
+        pointer = 0
+        for number = 1, messageCount
+            size = dataSize > NET_LIMIT and NET_LIMIT or dataSize
+            dataSize -= size
+
+            data = sub( transmittedData, pointer + 1, pointer + size )
+            pointer += size
+
+            timer_Simple number * @TransmissionSpeed, ->
+                unless @Sending
+                    return
+
+                @StartTransmission!
+                WriteData( data, size )
+                @EndTransmission( ply )
+
+                progressFunc = @ProgressFunc
+                if progressFunc
+                    progressFunc( @, number / messageCount, size )
+
+                if number == messageCount
+                    @Sending = false
+
+    -- Receiving
+    IsReceiving: =>
+        return @Receiving
+
+    Receive: ( func, permanent ) =>
+        assert isfunction( func ), "Second argument must be a function!"
+        @PermanentReceive = permanent == true
+        @ReceiveFunc = func
+
+    Incoming: ( bits, ply ) =>
+        ReceiveFunc = @ReceiveFunc
+        unless ReceiveFunc
+            return
+
+        unless @IsAllowedPlayer( ply )
+            return
+
+        unless @Receiving
+            @MessageCount = ReadUInt( ReadUInt( 5 ) + 1 )
+            @Compressed = ReadBool!
+
+            if @VerifyChecksums
+                @FileCRC = tostring( ReadUInt( 32 ) )
+
+            @TransmittedData = ""
+            @Receiving = true
+            @Received = 0
+            return
+
+        bytes = ( bits / 8 ) - ( #@FileName + 1 )
+        received = @Received + 1
+        @Received = received
+
+        transmittedData = @TransmittedData .. ReadData( bytes )
+        @TransmittedData = transmittedData
+
+        fraction = received / @MessageCount
+
+        progressFunc = @ProgressFunc
+        if progressFunc
+            progressFunc( @, fraction, bytes )
+
+        if fraction >= 1
+            @Finish!
+
+            if not @VerifyChecksums or CRC( transmittedData ) == @FileCRC
+                if @Compressed
+                    transmittedData = Decompress( transmittedData )
+                    @TransmittedData = transmittedData
+
+                ReceiveFunc( @, transmittedData, ply )
+                return
+
+            error( @ .. " error: " .. message, 3 )
+
+    -- Other
+    OnProgress: ( func ) =>
+        assert isfunction( func ), "Second argument must be a function!"
+        @ProgressFunc = func
+
+    Finish: =>
+        @Receiving = false
+        unless @PermanentReceive
+            @ReceiveFunc = nil
+        @Sending = false
+
+    Remove: =>
+        NetTransfers[ @FileName ] = nil
+        @Finish!
+
+_G.NetTransfer = NetTransfer
+export default NetTransfer
