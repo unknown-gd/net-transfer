@@ -102,3 +102,6 @@ concommand.Add( "fs_test", function()
     end
 end )
 ```
+
+![image](https://github.com/PrikolMen/net-transfer/assets/44779902/4e1cb05a-696a-4ad7-8e8e-ba11f593d45b)
+![image](https://github.com/PrikolMen/net-transfer/assets/44779902/37db7643-c3c0-4b1b-9a1d-f80576b9e3ab)
