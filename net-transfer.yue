@@ -77,15 +77,15 @@ class NetTransfer
         @SetVerifyChecksums( verifyChecksums )
         @SetTransmissionSpeed( 1.2, true )
         @SetUnreliable( unreliable )
-        @SetTimeoutTime( 10 )
+        @SetTimeout( 10 )
 
     -- Receive timeout
-    GetTimeoutTime: =>
-        return @TimeoutTime
+    GetTimeout: =>
+        return @Timeout
 
-    SetTimeoutTime: ( int ) =>
+    SetTimeout: ( int ) =>
         assert isnumber( int ), "Second argument must be a 'number'!"
-        @TimeoutTime = abs( int )
+        @Timeout = abs( int )
 
     -- Transmission speed ( Packet per second )
     --[[
@@ -251,8 +251,8 @@ class NetTransfer
         unless @IsAllowedPlayer( ply )
             return
 
-        Create tostring( @ ), @TimeoutTime, 1, ->
-            @Error( format( "Timeout, no response for %d seconds.", @TimeoutTime ) )
+        Create tostring( @ ), @Timeout, 1, ->
+            @Error( format( "Timeout, no response for %d seconds.", @Timeout ) )
 
         unless @Receiving
             @MessageCount = ReadUInt( ReadUInt( 5 ) + 1 )
