@@ -1,5 +1,5 @@
 # net-transfer
-Object for conveniently sending and receiving large data/files via `net`.
+Object for conveniently sending and receiving large data/files via [net](https://wiki.facepunch.com/gmod/net).
 
 ## Where is Lua?
 Written on [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua code can be found in [releases](https://github.com/PrikolMen/net-transfer/releases).
