@@ -1,13 +1,13 @@
 # net-transfer
 Object for conveniently sending and receiving large data/files via `net`.
 
-## Code
+## Where is Lua?
 Written on [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua code can be found in [releases](https://github.com/PrikolMen/net-transfer/releases).
 
 ## Global Functions
 - `NetTransferObject` NetTransfer( `string` transferName, `boolean` verifyChecksums, `boolean` unreliable ) - Creates a data transfer object with the specified parameters.
 
-## Meta Functions
+## `NetTransferObject:` Functions
 - `number` NetTransfer:GetTransmissionSpeed() - Returns network messages per second.
 - `nil` NetTransfer:SetTransmissionSpeed( `number` packet per second, `boolean` noCeil ) - Sets network messages per second.
 - `boolean` NetTransfer:IsUnreliable() - https://wiki.facepunch.com/gmod/net.Start

@@ -1,11 +1,14 @@
 :Broadcast, :Start, :Send, :SendToServer, :ReadBool, :ReadData, :ReadString, :ReadUInt, :WriteBool, :WriteData, :WriteString, :WriteUInt = net
+ErrorNoHaltWithStack = ErrorNoHaltWithStack
 :CRC, :Compress, :Decompress = util
 :sub, :find, :format, :len = string
-timer_Simple = timer.Simple
+:Simple, :Create, :Remove = timer
+:abs, :ceil, :log = math
 tostring = tostring
 tonumber = tonumber
-:ceil, :log = math
 TypeID = TypeID
+xpcall = xpcall
+error = error
 
 NET_LIMIT = 2 ^ 16 - 2 ^ 10
 NetTransfers = {}
@@ -61,10 +64,10 @@ PerformFilter = ( netTransfer, filter, ply ) ->
 
 class NetTransfer
     __tostring: =>
-        return format( "Net Transfer: %p [%s]", @, @TransferName )
+        return format( "NetTransfer: %p [%s]", @, @TransferName )
 
     new: ( transferName, verifyChecksums, unreliable ) =>
-        assert isstring( transferName ), "First argument must be a string!"
+        assert isstring( transferName ), "First argument must be a 'string'!"
         NetTransfers[ transferName ] = @
 
         @TransferName = transferName
@@ -74,6 +77,15 @@ class NetTransfer
         @SetVerifyChecksums( verifyChecksums )
         @SetTransmissionSpeed( 1.2, true )
         @SetUnreliable( unreliable )
+        @SetTimeoutTime( 10 )
+
+    -- Receive timeout
+    GetTimeoutTime: =>
+        return @TimeoutTime
+
+    SetTimeoutTime: ( int ) =>
+        assert isnumber( int ), "Second argument must be a 'number'!"
+        @TimeoutTime = abs( int )
 
     -- Transmission speed ( Packet per second )
     --[[
@@ -92,7 +104,7 @@ class NetTransfer
         return 1 / @TransmissionSpeed
 
     SetTransmissionSpeed: ( pps, noCeil ) =>
-        assert isnumber( pps ), "Second argument must be a number!"
+        assert isnumber( pps ), "Second argument must be a 'number'!"
         @TransmissionSpeed = 1 / ( noCeil and pps or ceil( pps ) )
 
     -- Unreliable networking
@@ -107,7 +119,7 @@ class NetTransfer
         return @VerifyChecksums
 
     SetVerifyChecksums: ( value ) =>
-        @Unreliable = value ~= false
+        @VerifyChecksums = value == true
 
     -- Player filter
     GetFilter: =>
@@ -148,7 +160,7 @@ class NetTransfer
         return @TransmittedData
 
     SetTransmittedData: ( transmittedData, compress, decompress ) =>
-        assert isstring( transmittedData ), "Second argument must be a string!"
+        assert isstring( transmittedData ), "Second argument must be a 'string'!"
         @TransmittedData = transmittedData
 
         if compress
@@ -164,8 +176,8 @@ class NetTransfer
 
     EndTransmission: ( target ) =>
         if SERVER
-            if value
-                Send( value )
+            if target
+                Send( target )
             else
                 Broadcast!
         else
@@ -207,7 +219,7 @@ class NetTransfer
             data = sub( transmittedData, pointer + 1, pointer + size )
             pointer += size
 
-            timer_Simple number * @TransmissionSpeed, ->
+            Simple number * @TransmissionSpeed, ->
                 unless @Sending
                     return
 
@@ -217,7 +229,7 @@ class NetTransfer
 
                 progressFunc = @ProgressFunc
                 if progressFunc
-                    progressFunc( @, number / messageCount, size )
+                    xpcall( progressFunc, ErrorNoHaltWithStack, @, number / messageCount, size )
 
                 if number == messageCount
                     @Sending = false
@@ -227,17 +239,20 @@ class NetTransfer
         return @Receiving
 
     Receive: ( func, permanent ) =>
-        assert isfunction( func ), "Second argument must be a function!"
+        assert isfunction( func ), "Second argument must be a 'function'!"
         @PermanentReceive = permanent == true
         @ReceiveFunc = func
 
     Incoming: ( bits, ply ) =>
-        ReceiveFunc = @ReceiveFunc
-        unless ReceiveFunc
+        receiveFunc = @ReceiveFunc
+        unless receiveFunc
             return
 
         unless @IsAllowedPlayer( ply )
             return
+
+        Create tostring( @ ), @TimeoutTime, 1, ->
+            @Error( format( "Timeout, no response for %d seconds.", @TimeoutTime ) )
 
         unless @Receiving
             @MessageCount = ReadUInt( ReadUInt( 5 ) + 1 )
@@ -262,7 +277,7 @@ class NetTransfer
 
         progressFunc = @ProgressFunc
         if progressFunc
-            progressFunc( @, fraction, bytes )
+            xpcall( progressFunc, ErrorNoHaltWithStack, @, fraction, bytes )
 
         if fraction >= 1
             @Finish!
@@ -272,21 +287,36 @@ class NetTransfer
                     transmittedData = Decompress( transmittedData )
                     @TransmittedData = transmittedData
 
-                ReceiveFunc( @, transmittedData, ply )
+                xpcall( receiveFunc, ErrorNoHaltWithStack, @, transmittedData, ply )
                 return
 
-            error( @ .. " error: " .. message, 3 )
+            @Error( message )
 
     -- Other
     OnProgress: ( func ) =>
-        assert isfunction( func ), "Second argument must be a function!"
+        assert isfunction( func ), "Second argument must be a 'function'!"
         @ProgressFunc = func
 
+    Error: ( message, ... ) =>
+        @Finish!
+
+        errorFunc = @ErrorFunc
+        if errorFunc
+            xpcall( errorFunc, ErrorNoHaltWithStack, @, message, ... )
+
+        error( "#{@} error: " .. message )
+
+    OnError: ( func ) =>
+        assert isfunction( func ), "Second argument must be a 'function'!"
+        @ErrorFunc = func
+
     Finish: =>
+        Remove tostring( @ )
         @Receiving = false
+        @Sending = false
+
         unless @PermanentReceive
             @ReceiveFunc = nil
-        @Sending = false
 
     Remove: =>
         NetTransfers[ @TransferName ] = nil
