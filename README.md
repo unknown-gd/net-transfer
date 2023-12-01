@@ -27,6 +27,9 @@ Written on [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua cod
 - `boolean` NetTransfer:IsReceiving() - Returns `true` if data receiving is in progress.
 - `nil` NetTransfer:Receive( `function` func, `boolean` permanent ) - As soon as the data is completely retrieved it will execute the specified function and return the data in it (if the data was compressed it will decompress it), by default the function is executed once after it is deleted unless permanent is set to `true`.
 - `nil` NetTransfer:OnProgress( `function` func ) - Sets the function that will receive the progress of data retrieval.
+- `nil` NetTransfer:OnError( `function` func ) - Sets a function that will be executed if an error occurs and will receive the object and an error message.
+- `number` NetTransfer:GetTimeoutTime() - Returns the current timeout value.
+- `nil` NetTransfer:SetTimeoutTime( `number` int ) - Sets the time for receiving a response from the sender, default is 10 seconds, used mostly for unreliable data transmission because messages may be lost during transmission.
 - `nil` NetTransfer:Finish() - Forcibly terminates the data transfer.
 - `nil` NetTransfer:Remove() - Removes an object from the list to receive data.
 
@@ -105,3 +108,10 @@ end )
 
 ![image](https://github.com/PrikolMen/net-transfer/assets/44779902/4e1cb05a-696a-4ad7-8e8e-ba11f593d45b)
 ![image](https://github.com/PrikolMen/net-transfer/assets/44779902/37db7643-c3c0-4b1b-9a1d-f80576b9e3ab)
+
+## Speeds that I got
+### Reliable data transmission ( File size ~10 MB )
+![image](https://github.com/PrikolMen/net-transfer/assets/44779902/43eebbdd-e1dd-4741-8592-23e4a855aa46)
+
+### Unreliable data transmission ( File size ~10 MB )
+![image](https://github.com/PrikolMen/net-transfer/assets/44779902/c58c79b0-b831-41a9-9fca-f37de285147b)
