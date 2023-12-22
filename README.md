@@ -1,7 +1,7 @@
 # net-transfer
 Object for conveniently sending and receiving large data/files via [net](https://wiki.facepunch.com/gmod/net).
 
-## Where is Lua?
+## Where is Lua code?
 Written in [Yuescript](https://github.com/pigpigyyy/Yuescript), compiled Lua code can be found in [releases](https://github.com/PrikolMen/net-transfer/releases), or you can compile it yourself using compiled [Yuescript Compiler](https://github.com/pigpigyyy/Yuescript/releases/latest).
 
 ## Global Functions
